@@ -1,0 +1,91 @@
+# .gitignore
+# Sensitive files
+*.env
+.env.local
+.env.*.local
+
+# Credentials
+*.key
+*.pem
+*.p12
+*.pfx
+credentials.json
+secrets.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Models
+models/
+*.bin
+*.pt
+*.pth
+
+# Test & Logs
+*.log
+logs/
+htmlcov/
+.pytest_cache/
+.coverage
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Test images (optional)
+test_images/
+demo_images/
+
+# Results
+results/
+outputs/
+temp/
+
+# Cache
+.cache/
+.mypy_cache/
+.pytest_cache/
+
+# IDE specific
+.venv
+.idea/
+*.iml
+
+# Data files
+data/
+submissions/
+catboost_info/

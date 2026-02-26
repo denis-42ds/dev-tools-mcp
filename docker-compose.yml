@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  dev-tools-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dev-tools-mcp:latest
+    container_name: dev-tools-mcp
+    ports:
+      - "8000:8000"
+    volumes:
+      # Монтируйте вашу кодовую базу для анализа (read-only)
+      - ${SCAN_PATH:-./demo_project}:/workspace:ro
+    environment:
+      - PORT=8000
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Одноразовый контейнер для smoke-теста
+  smoke:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dev-tools-mcp:latest
+    entrypoint: ["./entrypoint.sh", "smoke"]
+    profiles:
+      - smoke

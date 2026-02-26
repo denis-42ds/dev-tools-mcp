@@ -1,0 +1,16 @@
+# Намеренно содержит проблемы для демонстрации audit_dockerfile
+FROM python:latest
+
+ENV SECRET_KEY=super_secret_password_123
+ENV DB_PASSWORD=mysecretpassword
+
+RUN apt-get update
+RUN apt-get install -y curl wget vim gcc
+
+COPY . .
+
+RUN pip install flask requests sqlalchemy psycopg2-binary
+
+RUN echo "App installed"
+
+CMD ["python", "app.py"]

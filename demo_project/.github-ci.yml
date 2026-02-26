@@ -1,0 +1,2 @@
+# CI placeholder
+stages: [test, build, deploy]
