@@ -218,6 +218,8 @@ docker run -p 8000:8000 \
 dev-tools-mcp/
 ├── src/
 │   └── server.py               # MCP-сервер: все три инструмента + HTTP-транспорт
+├── scripts/
+│   └── init_demo_git.sh        # Создание git истории для демо
 ├── demo_project/               # Тестовые данные для demo-сценария
 │   ├── src/
 │   │   ├── users.py            # Намеренный техдолг (~15 маркеров)
