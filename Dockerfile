@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/          ./src/
 COPY smoke_test.py ./
 COPY entrypoint.sh ./
+RUN chmod +x ./entrypoint.sh
 
 # demo_project — тестовые данные для команды smoke
 COPY demo_project/ ./demo_project/

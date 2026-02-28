@@ -24,7 +24,7 @@ MCP-сервер с тремя практичными инструментами
 
 ```bash
 # 1. Клонировать репозиторий
-git clone https://github.com/your-org/dev-tools-mcp.git
+git clone https://github.com/denis-42ds/dev-tools-mcp.git
 cd dev-tools-mcp
 
 # 2. Собрать образ
