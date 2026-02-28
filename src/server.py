@@ -22,8 +22,7 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP(
     name="dev-tools-mcp",
-    version="1.0.0",
-    description="Developer productivity tools: tech debt scanner, release notes generator, Dockerfile auditor",
+    instructions="Developer productivity tools: tech debt scanner, release notes generator, Dockerfile auditor",
 )
 
 # ---------------------------------------------------------------------------
