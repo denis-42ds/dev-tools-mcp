@@ -1,103 +1,68 @@
 # 🎬 DEMO — Dev Tools MCP Server
 
-Воспроизводимый сценарий тестирования всех трёх инструментов.  
-**Время:** ~10–15 минут. Не требует внешних сервисов или API-ключей.
+---
+
+## Сценарий A — «Перед релизом: найти долг и написать changelog»
+
+### Цель
+
+Разработчик готовится к релизу v1.0.0. Нужно:
+1. Понять, какой критичный техдолг накопился в кодовой базе — чтобы решить, что закрыть до релиза.
+2. Сгенерировать Release Notes из git-лога — чтобы не писать changelog вручную.
+
+Оба действия выполняются за 2 минуты через MCP-инструменты без ручного grep и git log.
 
 ---
 
-## Подготовка: запуск сервера
+### Предусловия
 
-### Через Docker (рекомендуется)
+**1. Собрать и запустить контейнер:**
 
 ```bash
-# Сборка
 docker build -t dev-tools-mcp .
-
-# Запуск сервера
 docker run -p 8000:8000 dev-tools-mcp serve
 ```
 
-В другом терминале убедитесь, что сервер поднялся:
-
+**2. Проверить готовность:**
 ```bash
 curl http://localhost:8000/health
-# → {"status":"ok","service":"dev-tools-mcp","version":"1.0.0","tools":[...]}
+# {"status":"ok","service":"dev-tools-mcp","version":"1.0.0","tools":[...]}
 ```
 
-### Smoke-тест (быстрая проверка без запуска сервера)
+**3. Открыть MCP Inspector** (в отдельном терминале):
 
 ```bash
-docker run dev-tools-mcp smoke
+# Требуется Node.js ≥ 22. Проверить: node --version
+# Если версия старше — обновить через nvm или с nodejs.org
+
+npx @modelcontextprotocol/inspector
 ```
 
-Ожидаемый вывод:
-```
-╔══════════════════════════════════════════════╗
-║   dev-tools-mcp  —  Smoke Test               ║
-╚══════════════════════════════════════════════╝
+В открывшемся браузере (`http://localhost:6274`):
+- Поле **Transport**: выбрать `Streamable HTTP`
+- Поле **URL**: ввести `http://localhost:8000/mcp`
+- Нажать **Connect**
+- Перейти на вкладку **Tools** — должны появиться 3 инструмента
 
-🔍  Tool 1: scan_tech_debt
-  ✅ Full scan (demo_project)
-       → Всего: 28, High: 12 ✅
-  ✅ Filter priority=high
-  ✅ Filter extensions=.py
-  ✅ Nonexistent path
-
-📝  Tool 2: generate_release_notes
-  ✅ v0.1.0..v1.0.0
-  ✅ Auto range
-  ...
-
-🐳  Tool 3: audit_dockerfile
-  ✅ Dockerfile.bad
-  ✅ Dockerfile.good (strict)
-  ...
-
-════════════════════════════════════════════════
-✅  ALL TESTS PASSED  (12/12)
-════════════════════════════════════════════════
-```
-
-Код завершения: `echo $?` → `0`
+> **Альтернатива без Inspector** — вызывать инструменты через curl (см. раздел ниже)
 
 ---
 
-### Запуск MCP Inspector (для ручного тестирования)
+### Шаг 1 — Найти критичный техдолг
 
-```bash
-# Через HTTP (сервер должен быть запущен)
-npx @modelcontextprotocol/inspector --url http://localhost:8000/mcp
+**Tool:** `scan_tech_debt`
 
-# Или через stdio (локально)
-npx @modelcontextprotocol/inspector python src/server.py
-```
-
-Откройте [http://localhost:5173](http://localhost:5173) → вкладка **Tools** → три инструмента.
-
----
-
-## Сценарий 1 — Сканирование технического долга
-
-Все примеры используют `/workspace` — это `demo_project/`, смонтированная в контейнер  
-(или абсолютный путь на хосте при локальном запуске).
-
-В Inspector вызовите `scan_tech_debt`:
-
-### 1.1 Полное сканирование
-
+**Аргументы:**
 ```json
 {
-  "path": "/workspace"
+  "path": "/app/demo_project",
+  "priority_filter": "high"
 }
 ```
 
 **Ожидаемый результат:**
+
 ```
-# 🔍 Отчёт по техдолгу
-Путь: /workspace | Файлов: 6 | Найдено: 28
-
-🔴 High: 12   🟡 Medium: 12   🔵 Low: 4
-
 ## 🔴 HIGH PRIORITY
 
 💀 XXX — `src/users.py:13`
@@ -111,39 +76,18 @@ npx @modelcontextprotocol/inspector python src/server.py
 ...
 ```
 
----
-
-### 1.2 Только критичные проблемы
-
-```json
-{
-  "path": "/workspace",
-  "priority_filter": "high"
-}
-```
-
-**Ожидаемый результат:** только маркеры FIXME / BUG / HACK / XXX.
+**Признак успеха:** найдено ≥ 10 высокоприоритетных маркеров с файлом и номером строки.
 
 ---
 
-### 1.3 Только Python-файлы
+### Шаг 2 — Сгенерировать Release Notes
 
+**Tool:** `generate_release_notes`
+
+**Аргументы:**
 ```json
 {
-  "path": "/workspace",
-  "extensions": ".py"
-}
-```
-
----
-
-## Сценарий 2 — Генерация Release Notes
-
-### 2.1 Между тегами v0.1.0 и v1.0.0
-
-```json
-{
-  "repo_path": "/workspace",
+  "repo_path": "/app/demo_project",
   "from_ref": "v0.1.0",
   "to_ref": "v1.0.0",
   "version": "1.0.0"
@@ -151,124 +95,127 @@ npx @modelcontextprotocol/inspector python src/server.py
 ```
 
 **Ожидаемый результат:**
+
 ```markdown
 # 🚀 Release Notes — 1.0.0
 Дата: 2025-xx-xx | Диапазон: v0.1.0..v1.0.0 | Коммитов: 10
 
 ## 💥 BREAKING CHANGES
-- **api**: change authentication endpoint from /auth to /api/v2/auth (b778b994)
+- **api**: change authentication endpoint from /auth to /api/v2/auth
 
 ## ✨ Новые возможности
-- **users**: add user authentication module (c807938f)
-- **core**: implement version tracking (be5cc76e)
-- **cache**: add Redis cache manager (22ecb058)
+- **users**: add user authentication module
+- **core**: implement version tracking
+- **cache**: add Redis cache manager
 
 ## ⚡ Производительность
-- **db**: optimize bulk user loading query (b8c645ad)
-
-## 👷 CI/CD
-- add GitHub Actions pipeline (a345016a)
-
-## ♻️ Рефакторинг
-- **users**: extract password hashing to separate module (f62f55fb)
+- **db**: optimize bulk user loading query
 
 ## 👥 Авторы
 - Demo User (10 коммитов)
 ```
 
----
-
-### 2.2 Автоматическое определение диапазона
-
-```json
-{
-  "repo_path": "/workspace"
-}
-```
-
-Сервер сам найдёт два последних тега и возьмёт диапазон между ними.
+**Признак успеха:** структурированный Markdown, выделен BREAKING CHANGE, указаны авторы.
 
 ---
 
-### 2.3 Компактный вывод
+### Итог сценария A
 
-```json
-{
-  "repo_path": "/workspace",
-  "from_ref": "v0.1.0",
-  "include_authors": false,
-  "include_stats": false
-}
-```
+За два вызова получены:
+- Список критичного техдолга → можно сразу создавать задачи в трекере
+- Готовые Release Notes → вставить в GitHub Releases без редактирования
 
 ---
 
-## Сценарий 3 — Аудит Dockerfile
+## Сценарий B — «Аудит Dockerfile перед деплоем»
 
-### 3.1 Проблемный Dockerfile
+### Шаг 1 — Проблемный Dockerfile
+
+**Tool:** `audit_dockerfile`
 
 ```json
 {
-  "path": "/workspace/infra/Dockerfile.bad"
+  "path": "/app/demo_project/infra/Dockerfile.bad"
 }
 ```
 
 **Ожидаемый результат:**
 ```
-## 🐳 Dockerfile.bad
-🔴 Critical: 3   🟡 Warning: 7   🔵 Info: 0
-
-### 🔴 CRITICAL
+🔴 Critical: 3   🟡 Warning: 7
 
 [C001] Контейнер работает от root
-  > 💡 Добавьте USER <non-root-user> перед CMD/ENTRYPOINT
-
-[C002] Используется нефиксированный тег образа: `python:latest` (строка 2)
-  > 💡 Укажите точный тег: python:3.11.9-slim
-
-[C003] Возможная утечка секрета в ENV (строка 4)
-  > 💡 Используйте Docker BuildKit secrets
-
-### 🟡 WARNING
-[W001] Отсутствует HEALTHCHECK
-[W002] apt-get install без --no-install-recommends
-[W003] apt-get update и install в разных слоях
-...
+[C002] Используется нефиксированный тег: `python:latest`
+[C003] Возможная утечка секрета в ENV
 
 Оценка: `████░░░░░░` 35/100
 ```
 
----
-
-### 3.2 Эталонный Dockerfile
+### Шаг 2 — Эталонный Dockerfile
 
 ```json
 {
-  "path": "/workspace/infra/Dockerfile.good",
+  "path": "/app/demo_project/infra/Dockerfile.good",
   "strict": true
 }
 ```
 
-**Ожидаемый результат:** 0 critical, оценка ≥ 90/100.
+**Признак успеха:** 0 critical, оценка ≥ 90/100.
 
 ---
 
-### 3.3 Вся директория infra/
+## Альтернатива: вызов через curl (без Inspector)
 
-```json
-{
-  "path": "/workspace/infra",
-  "strict": true
-}
+Если Inspector не запускается — инструменты можно вызвать напрямую через HTTP:
+
+```bash
+# 1. Инициализировать MCP-сессию
+curl -s -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {"name": "curl-test", "version": "1.0"}
+    }
+  }'
+
+# 2. Вызвать scan_tech_debt
+curl -s -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "name": "scan_tech_debt",
+      "arguments": {"path": "/app/demo_project", "priority_filter": "high"}
+    }
+  }'
 ```
 
-Отчёт по обоим Dockerfile с итоговыми оценками.
+---
+
+## Smoke-тест (автоматическая проверка)
+
+```bash
+docker run dev-tools-mcp smoke
+```
+
+Ожидаемый вывод:
+```
+✅  ALL TESTS PASSED  (12/12)
+```
+
+Код завершения `0` = все инструменты работают корректно.
 
 ---
 
-## Сценарий 4 — Монтирование вашего проекта
-
-Чтобы проанализировать свой реальный проект:
+## Использование со своим проектом
 
 ```bash
 docker run -p 8000:8000 \
@@ -276,52 +223,17 @@ docker run -p 8000:8000 \
   dev-tools-mcp serve
 ```
 
-Затем в Inspector/Claude:
-
-```json
-{ "path": "/workspace" }                    // scan_tech_debt
-{ "repo_path": "/workspace" }               // generate_release_notes  
-{ "path": "/workspace" }                    // audit_dockerfile
-```
+В Inspector/curl передавайте `/workspace` как путь.
 
 ---
 
-## Ожидаемые результаты
+## Диагностика
 
-| Инструмент | Сценарий | Ожидание |
-|-----------|----------|---------|
-| `scan_tech_debt` | demo_project | ≥ 20 маркеров, разбивка по приоритетам |
-| `scan_tech_debt` | priority=high | Только FIXME/BUG/HACK/XXX |
-| `scan_tech_debt` | несуществующий путь | Сообщение об ошибке, код не падает |
-| `generate_release_notes` | v0.1.0..v1.0.0 | 10 коммитов, BREAKING CHANGE выделен |
-| `generate_release_notes` | auto | Корректный автовыбор тегов |
-| `generate_release_notes` | не git-репо | Понятное сообщение об ошибке |
-| `audit_dockerfile` | Dockerfile.bad | ≥ 3 critical, score ≤ 40/100 |
-| `audit_dockerfile` | Dockerfile.good | 0 critical, score ≥ 90/100 |
-| `audit_dockerfile` | директория | Отчёт по нескольким файлам |
-
----
-
-## Проверка через /health и /mcp напрямую
-
-```bash
-# Health check
-curl http://localhost:8000/health
-
-# Инициализация MCP-сессии
-curl -X POST http://localhost:8000/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
-```
-
----
-
-## Диагностика проблем
-
-| Проблема | Решение |
-|---------|---------|
-| `connection refused :8000` | Убедитесь, что `serve` запущен; проверьте `docker ps` |
-| `smoke` вернул ненулевой код | `docker run dev-tools-mcp smoke 2>&1` — читайте вывод |
-| `git не найден` | Используйте Docker-образ (git уже включён) |
-| `mcp not found` | `pip install -r requirements.txt` |
-| Inspector не открывается | `npm install -g @modelcontextprotocol/inspector` |
+| Симптом | Что сделать |
+|---------|-------------|
+| `connection refused :8000` | Проверить `docker ps`, убедиться что `serve` запущен |
+| `smoke` возвращает ненулевой код | `docker run dev-tools-mcp smoke` — читать вывод построчно |
+| Inspector: `spawn --url ENOENT` | Запустить `npx @modelcontextprotocol/inspector` **без аргументов**, URL вводить в UI |
+| Inspector: `Not Found` на `/mcp` | Убедиться что выбран транспорт **Streamable HTTP** (не SSE, не stdio) |
+| Node.js слишком старый | Inspector требует Node ≥ 22: `node --version`, обновить через [nvm](https://github.com/nvm-sh/nvm) |
+| `not a git repository` | Пересобрать образ: `docker build --no-cache -t dev-tools-mcp .` |

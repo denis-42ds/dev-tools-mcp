@@ -618,29 +618,46 @@ def _audit_single_dockerfile(content: str, path: Path, strict: bool) -> list[dic
 # ---------------------------------------------------------------------------
 
 def _create_http_app():
-    """Создаёт составное ASGI-приложение: /health + /mcp."""
-    from starlette.applications import Starlette
+    """
+    Составное ASGI-приложение.
+
+    mcp.streamable_http_app() уже содержит маршрут /mcp внутри себя.
+    Поэтому монтируем его на корень "/" — он сам обработает POST /mcp.
+    /health перехватываем до передачи в MCP-приложение через middleware.
+    """
+    import json
     from starlette.responses import JSONResponse
-    from starlette.routing import Route, Mount
 
-    async def health(request):
-        return JSONResponse(
-            {
-                "status": "ok",
-                "service": "dev-tools-mcp",
-                "version": "1.0.0",
-                "tools": ["scan_tech_debt", "generate_release_notes", "audit_dockerfile"],
-            }
-        )
-
+    # MCP SDK регистрирует /mcp внутри этого приложения
     mcp_asgi = mcp.streamable_http_app()
 
-    return Starlette(
-        routes=[
-            Route("/health", health, methods=["GET"]),
-            Mount("/mcp", app=mcp_asgi),
-        ]
-    )
+    HEALTH_BODY = json.dumps(
+        {
+            "status": "ok",
+            "service": "dev-tools-mcp",
+            "version": "1.0.0",
+            "tools": ["scan_tech_debt", "generate_release_notes", "audit_dockerfile"],
+        }
+    ).encode()
+
+    async def app(scope, receive, send):
+        # Перехватываем GET /health до MCP-приложения
+        if scope["type"] == "http" and scope["path"] == "/health":
+            await send({
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(HEALTH_BODY)).encode()),
+                ],
+            })
+            await send({"type": "http.response.body", "body": HEALTH_BODY})
+            return
+
+        # Всё остальное (включая POST /mcp) — в MCP-приложение
+        await mcp_asgi(scope, receive, send)
+
+    return app
 
 
 # ---------------------------------------------------------------------------
@@ -655,11 +672,11 @@ if __name__ == "__main__":
 
         port = int(os.environ.get("PORT", 8000))
         print(f"[dev-tools-mcp] Starting HTTP server on 0.0.0.0:{port}", flush=True)
-        print(f"[dev-tools-mcp]   /health — health check", flush=True)
-        print(f"[dev-tools-mcp]   /mcp    — MCP Streamable HTTP endpoint", flush=True)
+        print(f"[dev-tools-mcp]   GET  /health — health check", flush=True)
+        print(f"[dev-tools-mcp]   POST /mcp    — MCP Streamable HTTP endpoint", flush=True)
         app = _create_http_app()
         uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
 
     else:
-        # Default: stdio transport for Claude Desktop / MCP Inspector
+        # Default: stdio transport для Claude Desktop / MCP Inspector (stdio)
         mcp.run(transport="stdio")
